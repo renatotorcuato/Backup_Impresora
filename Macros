@@ -1,0 +1,67 @@
+# ================================================================================
+# GCode Macro: START_PRINT
+# Aggiungi START_PRINT nello script di avvio dello Slicer. 
+# ================================================================================
+[gcode_macro START_PRINT]
+gcode:
+#Get Bed and Extruder temperature from Slicer GCode
+      {% set BED_TEMP = params.BED_TEMP|default(60)|float %}
+      {% set EXTRUDER_TEMP = params.EXTRUDER_TEMP|default(190)|float %}
+      #Preheat nozzle and bed
+      M104 S{EXTRUDER_TEMP} T0                        
+      M140 S{BED_TEMP}                                
+      
+#Heat nozzle and bed
+      M190 S{BED_TEMP}                               
+      M109 S{EXTRUDER_TEMP} T0  
+      
+    G28 ; Home di tutti gli assi    
+    BED_MESH_CALIBRATE PRINT_MIN={params.PRINT_MIN} PRINT_MAX={params.PRINT_MAX} ; Calibrazione del Bed
+    G92 E0 ; Reset dell'estrusore
+    G1 Z5.0 F3000 ; Muove l'asse Z un po' in alto per evitare di graffiare il Bed
+    G1 X7.1 Y10 Z0.3 F5000.0 ; Spostamento alla posizione iniziale
+    G1 X7.1 Y190.0 Z0.3 F1500.0 E15 ; Disegna la prima linea
+    G1 X7.4 Y190.0 Z0.3 F5000.0 ; Spostamento laterale
+    G1 X7.4 Y10 Z0.3 F1500.0 E30 ; Disegna la seconda linea
+    G1 E-10 F300 ; Ritrae -10
+    G92 E0 ; Reset dell'estrusore
+    G1 Z5.0 F3000 ; Muove l'asse Z un po' in alto per evitare di graffiare il Bed
+
+# ================================================================================
+# GCode Macro: END_PRINT
+# Aggiungi END_PRINT nello script di fine dello Slicer. 
+# ================================================================================
+[gcode_macro END_PRINT]
+gcode:
+    G1 Y190 F1500; Sposta Y davanti
+    # G10 ; Imposta l'offset?  O ritrae?
+    G91 ; Posizionamento relativo
+    G1 Z+10 ; Muove Z in alto per non colpire nulla
+    G1 E-10 F300 ; Ritrae -10
+    G90 ; Posizionamento assoluto
+    G1 X10 Y200 F2000 ; Muove X10, Y200
+    M104 S0 ; Spegne l'estrusore (lo imposta a 0)
+    M140 S0 ; Spegne il Bed (lo imposta a 0)
+    M106 S0 ; Spegne le ventole di raffreddamento
+    M84 ; Disabilita gli stepper motors
+
+
+
+# Fast Infill for Klipper
+
+[gcode_macro _USE_INFILL_SQV]
+gcode:
+    {% set svv = printer.save_variables.variables %}
+    {% set sqv = svv.infill_sqv | default(printer.configfile.settings.printer.square_corner_velocity, true) %}
+    SET_VELOCITY_LIMIT SQUARE_CORNER_VELOCITY={ sqv }
+
+[gcode_macro _USE_NORMAL_SQV]
+gcode:
+    {% set sqv = printer.configfile.settings.printer.square_corner_velocity %}
+    SET_VELOCITY_LIMIT SQUARE_CORNER_VELOCITY={ sqv }
+
+[gcode_macro SET_INFILL_SQV]
+gcode:
+    {% set svv = printer.save_variables.variables %}
+    {% set val = params.SQV|default(svv.infill_sqv|default(printer.configfile.settings.printer.square_corner_velocity, true), true) | int %}
+    SAVE_VARIABLE VARIABLE=infill_sqv VALUE={val}
